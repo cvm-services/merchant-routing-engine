@@ -149,12 +149,16 @@ __all__ = [
     # ── Tunables / constants ────────────────────────────────────────────────────
     "LAST_RESORT_RATES",
     "DEFAULT_DB_PATH",
+    "DEFAULT_BURN_DB_PATH",
+    "BALANCE_DELTA_PROVIDERS",
     "CACHE_TTL_SECONDS",
     "MIN_CALLS_FOR_RATE",
     "CHANGE_THRESHOLD",
     "CHANGE_RECENT_HOURS",
     "CHANGE_BASELINE_HOURS",
     "UNKNOWN_PROVIDER_FALLBACK",
+    # ── Balance-delta measured rate (ppq/openrouter) ───────────────────────────
+    "get_balance_delta_rate",
 ]
 
 _log = logging.getLogger(__name__)
@@ -164,12 +168,22 @@ _log = logging.getLogger(__name__)
 #: Production usage DB (where ``api_calls.cost_usd`` lives after RP-1/RP-2).
 DEFAULT_DB_PATH: str = os.path.expanduser("~/.hermes/bot/zai_usage.db")
 
+#: Burn DB (where ``provider_balances`` lives — balance deltas for ppq/openrouter).
+DEFAULT_BURN_DB_PATH: str = os.path.expanduser("~/.hermes/bot/api_burn.db")
+
+#: Providers whose real $/M is measured from credit-balance depletion rather
+#: than per-call ``cost_usd``. PPQ and OpenRouter APIs don't return per-call
+#: cost, so we measure from how much credit was consumed vs tokens routed.
+BALANCE_DELTA_PROVIDERS: tuple[str, ...] = ("ppq", "openrouter")
+
 #: Cache TTL. Prices do not change per-second; recompute at most every 5 minutes.
 CACHE_TTL_SECONDS: float = 300.0
 
 #: Minimum number of costed calls in the window before we trust the rate.
 #: Below this we return ``None`` (insufficient data) rather than a noisy number.
-MIN_CALLS_FOR_RATE: int = 100
+#: Lowered from 100 → 50 so providers like DeepInfra (81 real costed calls)
+#: register as measured instead of falling through to the seed.
+MIN_CALLS_FOR_RATE: int = 50
 
 #: Window for the "recent" rate used in change detection (24 hours).
 CHANGE_RECENT_HOURS: float = 24.0
@@ -305,6 +319,10 @@ _zai_cache: dict[tuple[str, str], tuple[float, float]] = {}
 # amortized rate; the metered-vs-subscription split moves slowly.
 _zai_pm_cache: dict[tuple[str, str | None, str], tuple[float | None, float]] = {}
 
+# Balance-delta rate cache. key: (provider, usage_db, burn_db) → (rate, ts).
+# Same 5-min TTL as the cost_usd cache.
+_balance_delta_cache: dict[tuple[str, str, str], tuple[float | None, float]] = {}
+
 
 def clear_cache() -> None:
     """Drop every cached rate. Tests call this between assertions; production
@@ -314,6 +332,7 @@ def clear_cache() -> None:
         _trailing_cache.clear()
         _zai_cache.clear()
         _zai_pm_cache.clear()
+        _balance_delta_cache.clear()
 
 
 # ── Internal helpers ─────────────────────────────────────────────────────────

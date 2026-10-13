@@ -24,7 +24,7 @@ git clone https://gitnostr.com/npub1nng5mxkdh2mu593twukfr7j3fk5wxfy0v8ujf0e5g8nw
 | `.ngit/act/workflows/python-test.yml` | ngit-ci coordinator (Nostr) | **Active lane** — pytest suites + syntax checks (see `.ngit/README.md` for steps, counts, and the measured 24-module ignore list) |
 | `.github/workflows/` | GitHub Actions | None exist; deliberately not used |
 
-Fleet plan `hermes-orchestration/docs/PLAN-fleet-governance.md` Phase 12.2 lists this repo as CI-less ("merchant-routing" among the 19 CI-less repos); this lane closes that item for this repo.
+Fleet plan `hermes-orchestration/docs/PLAN-fleet-governance.md` Phase 12.2 lists this repo as CI-less ("merchant-routing" among the 19 CI-less repos); **closed for this repo** — the decision of record, the public-only policy rationale and the certificate's scope are written down in [`docs/ci-surface.md`](docs/ci-surface.md).
 
 ### Build artifacts (Nostr, not GitHub releases)
 
